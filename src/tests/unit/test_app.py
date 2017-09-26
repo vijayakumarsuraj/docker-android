@@ -37,18 +37,43 @@ class TestApp(TestCase):
     @mock.patch('subprocess.Popen')
     def test_run_with_appium(self, mocked_avd, mocked_subprocess):
         with mock.patch('src.app.appium_run') as mocked_appium:
+            os.environ['AVD'] = str(False)
             os.environ['APPIUM'] = str(True)
             app.run()
-            self.assertTrue(mocked_avd.called)
-            self.assertTrue(mocked_subprocess.called)
+            self.assertFalse(mocked_avd.called)
+            self.assertFalse(mocked_subprocess.called)
             self.assertTrue(mocked_appium.called)
 
     @mock.patch('src.app.prepare_avd')
     @mock.patch('subprocess.Popen')
-    def test_run_withhout_appium(self, mocked_avd, mocked_subprocess):
+    def test_run_without_appium(self, mocked_avd, mocked_subprocess):
         with mock.patch('src.app.appium_run') as mocked_appium:
+            os.environ['AVD'] = str(False)
             os.environ['APPIUM'] = str(False)
             app.run()
-            self.assertTrue(mocked_avd.called)
-            self.assertTrue(mocked_subprocess.called)
+            self.assertFalse(mocked_avd.called)
+            self.assertFalse(mocked_subprocess.called)
             self.assertFalse(mocked_appium.called)
+
+    @mock.patch('src.app.appium_run')
+    def test_run_with_avd(self, mocked_appium):
+        with mock.patch('src.app.prepare_avd') as mocked_avd:
+            with mock.patch('subprocess.Popen') as mocked_subprocess:
+                os.environ['AVD'] = str(True)
+                os.environ['APPIUM'] = str(False)
+                app.run()
+                self.assertTrue(mocked_avd.called)
+                self.assertTrue(mocked_subprocess.called)
+                self.assertFalse(mocked_appium.called)
+                
+    @mock.patch('src.app.appium_run')
+    def test_run_without_avd(self, mocked_appium):
+        with mock.patch('src.app.prepare_avd') as mocked_avd:
+            with mock.patch('subprocess.Popen') as mocked_subprocess:
+                os.environ['AVD'] = str(False)
+                os.environ['APPIUM'] = str(False)
+                app.run()
+                self.assertFalse(mocked_avd.called)
+                self.assertFalse(mocked_subprocess.called)
+                self.assertFalse(mocked_appium.called)
+                

@@ -182,6 +182,8 @@ def run():
         logger.info('Run emulator...')
         cmd = 'emulator -avd {name}'.format(name=avd_name)
         subprocess.Popen(cmd.split())
+    else:
+        avd_name = ''
         
     # Run Appium if the APPIUM flag was set.
     appium = convert_str_to_bool(str(os.getenv('APPIUM', False)))
