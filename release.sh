@@ -118,7 +118,7 @@ function test() {
         docker kill $test_container && docker rm $test_container
 
         echo "----PREPARE CONTAINER----"
-        docker run --privileged -d -p 4723:4723 -p 6080:6080 -e APPIUM=True -e DEVICE="Samsung Galaxy S6" --name $test_container $test_image
+        docker run --privileged -d -p 4723:4723 -p 6080:6080 -e AVD=True -e APPIUM=True -e DEVICE="Samsung Galaxy S6" --name $test_container $test_image
         docker cp example/sample_apk $test_container:/root/tmp
         attempt=0
         while [ ${attempt} -le 10 ]; do
@@ -149,6 +149,7 @@ function test() {
     echo "----UNIT TESTS----"
     (export ANDROID_HOME=/root && export ANDROID_VERSION=$test_android_version && export API_LEVEL=$test_api_level \
     && export PROCESSOR=$test_processor && export SYS_IMG=$test_sys_img && export IMG_TYPE=$test_img_type \
+    && export APPIUM=True && export AVD=True\
     && nosetests src/tests/unit -v)
 }
 
