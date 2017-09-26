@@ -22,6 +22,7 @@ env:
     - ANDROID_VERSION=7.0 PROCESSOR=arm
     - ANDROID_VERSION=7.1.1 PROCESSOR=x86
     - ANDROID_VERSION=7.1.1 PROCESSOR=arm
+    - ANDROID_VERSION=device PROCESSOR=device
 
 script: bash travis.sh
 
