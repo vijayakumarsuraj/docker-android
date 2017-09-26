@@ -168,18 +168,22 @@ def create_node_config(avd_name: str, browser_name: str, appium_host: str, appiu
 
 def run():
     """Run app."""
-    device = os.getenv('DEVICE', 'Nexus 5')
-    logger.info('Device: {device}'.format(device=device))
+    # Run AVD if the AVD flag was set.
+    avd = convert_str_to_bool(str(os.getenv('AVD', False)))
+    if avd:
+        device = os.getenv('DEVICE', 'Nexus 5')
+        logger.info('Device: {device}'.format(device=device))
 
-    avd_name = '{device}_{version}'.format(device=device.replace(' ', '_').lower(), version=ANDROID_VERSION)
-    logger.info('AVD name: {avd}'.format(avd=avd_name))
+        avd_name = '{device}_{version}'.format(device=device.replace(' ', '_').lower(), version=ANDROID_VERSION)
+        logger.info('AVD name: {avd}'.format(avd=avd_name))
 
-    logger.info('Preparing emulator...')
-    prepare_avd(device, avd_name)
-    logger.info('Run emulator...')
-    cmd = 'emulator -avd {name}'.format(name=avd_name)
-    subprocess.Popen(cmd.split())
-
+        logger.info('Preparing emulator...')
+        prepare_avd(device, avd_name)
+        logger.info('Run emulator...')
+        cmd = 'emulator -avd {name}'.format(name=avd_name)
+        subprocess.Popen(cmd.split())
+        
+    # Run Appium if the APPIUM flag was set.
     appium = convert_str_to_bool(str(os.getenv('APPIUM', False)))
     if appium:
         logger.info('Run appium server...')
