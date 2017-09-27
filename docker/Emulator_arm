@@ -116,6 +116,12 @@ ENV DISPLAY=:0 \
 #===============
 EXPOSE 4723 6080 5554 5555
 
+#=========================
+# Set default variables
+#=========================
+ENV AVD=True
+ENV APPIUM=True
+
 #======================
 # Add Emulator Devices
 #======================

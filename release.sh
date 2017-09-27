@@ -1,7 +1,7 @@
 #!/bin/bash
 # Bash version should >= 4 to be able to run this script.
 
-IMAGE="butomo1989/docker-android"
+IMAGE="svijayakumar/docker-android"
 
 if [ -z "$1" ]; then
     read -p "Task (test|build|push|all) : " TASK
@@ -10,7 +10,7 @@ else
 fi
 
 if [ -z "$2" ]; then
-    read -p "Android version (5.0.1|5.1.1|6.0|7.0|7.1.1|all): " ANDROID_VERSION
+    read -p "Android version (5.0.1|5.1.1|6.0|7.0|7.1.1|device|all): " ANDROID_VERSION
 else
     ANDROID_VERSION=$2
 fi
@@ -43,7 +43,9 @@ declare -A list_of_processors=(
 function get_android_versions() {
     versions=()
 
-    if [ "$ANDROID_VERSION" == "all" ]; then
+    if [ "$ANDROID_VERSION" == "device" ]; then
+        versions+=("ignored")
+    elif [ "$ANDROID_VERSION" == "all" ]; then
         for key in "${!list_of_levels[@]}"; do
             versions+=($key)
         done
@@ -67,7 +69,9 @@ function get_android_versions() {
 function get_processors() {
     processors=()
 
-    if [ "$PROCESSOR" == "all" ]; then
+    if [ "$ANDROID_VERSION" == "device" ]; then
+        processors+=("ignored")
+    elif [ "$PROCESSOR" == "all" ]; then
         for key in "${!list_of_processors[@]}"; do
             processors+=($key)
         done
@@ -114,7 +118,7 @@ function test() {
         docker kill $test_container && docker rm $test_container
 
         echo "----PREPARE CONTAINER----"
-        docker run --privileged -d -p 4723:4723 -p 6080:6080 -e APPIUM=True -e DEVICE="Samsung Galaxy S6" --name $test_container $test_image
+        docker run --privileged -d -p 4723:4723 -p 6080:6080 -e AVD=True -e APPIUM=True -e DEVICE="Samsung Galaxy S6" --name $test_container $test_image
         docker cp example/sample_apk $test_container:/root/tmp
         attempt=0
         while [ ${attempt} -le 10 ]; do
@@ -145,6 +149,7 @@ function test() {
     echo "----UNIT TESTS----"
     (export ANDROID_HOME=/root && export ANDROID_VERSION=$test_android_version && export API_LEVEL=$test_api_level \
     && export PROCESSOR=$test_processor && export SYS_IMG=$test_sys_img && export IMG_TYPE=$test_img_type \
+    && export APPIUM=True && export AVD=True\
     && nosetests src/tests/unit -v)
 }
 
@@ -154,38 +159,49 @@ function build() {
 
     # Build docker image(s)
     for p in "${processors[@]}"; do
-        if [ "$p" == "x86" ]; then
+        if [ "$p" == "ignored" ]; then
+            FILE_NAME=docker/Device
+        elif [ "$p" == "x86" ]; then
             FILE_NAME=docker/Emulator_x86
         else
             FILE_NAME=docker/Emulator_arm
         fi
 
         for v in "${versions[@]}"; do
-            # Find image type and default web browser
-            if [ "$v" == "5.0.1" ] || [ "$v" == "5.1.1" ]; then
-                IMG_TYPE=android
-                BROWSER=browser
-            elif [ "$v" == "6.0" ]; then
-                # It is because there is no ARM EABI v7a System Image for 6.0
-                IMG_TYPE=google_apis
-                BROWSER=browser
+            if [ "$v" == "ignored" ]; then
+                image_version="$IMAGE-device:$RELEASE"
+                image_latest="$IMAGE-device:latest"
+                echo "[BUILD] Image name: $image_version and $image_latest"
+                echo "[BUILD] Dockerfile: $FILE_NAME"
+                docker build -t $image_version -f $FILE_NAME .
+                docker tag $image_version $image_latest
             else
-                IMG_TYPE=google_apis
-                BROWSER=chrome
+                # Find image type and default web browser
+                if [ "$v" == "5.0.1" ] || [ "$v" == "5.1.1" ]; then
+                    IMG_TYPE=android
+                    BROWSER=browser
+                elif [ "$v" == "6.0" ]; then
+                    # It is because there is no ARM EABI v7a System Image for 6.0
+                    IMG_TYPE=google_apis
+                    BROWSER=browser
+                else
+                    IMG_TYPE=google_apis
+                    BROWSER=chrome
+                fi
+                echo "[BUILD] IMAGE TYPE: $IMG_TYPE"
+                level=${list_of_levels[$v]}
+                echo "[BUILD] API Level: $level"
+                sys_img=${list_of_processors[$p]}
+                echo "[BUILD] System Image: $sys_img"
+                image_version="$IMAGE-$p-$v:$RELEASE"
+                image_latest="$IMAGE-$p-$v:latest"
+                echo "[BUILD] Image name: $image_version and $image_latest"
+                echo "[BUILD] Dockerfile: $FILE_NAME"
+                docker build -t $image_version --build-arg ANDROID_VERSION=$v --build-arg API_LEVEL=$level \
+                --build-arg PROCESSOR=$p --build-arg SYS_IMG=$sys_img --build-arg IMG_TYPE=$IMG_TYPE \
+                --build-arg BROWSER=$BROWSER -f $FILE_NAME .
+                docker tag $image_version $image_latest
             fi
-            echo "[BUILD] IMAGE TYPE: $IMG_TYPE"
-            level=${list_of_levels[$v]}
-            echo "[BUILD] API Level: $level"
-            sys_img=${list_of_processors[$p]}
-            echo "[BUILD] System Image: $sys_img"
-            image_version="$IMAGE-$p-$v:$RELEASE"
-            image_latest="$IMAGE-$p-$v:latest"
-            echo "[BUILD] Image name: $image_version and $image_latest"
-            echo "[BUILD] Dockerfile: $FILE_NAME"
-            docker build -t $image_version --build-arg ANDROID_VERSION=$v --build-arg API_LEVEL=$level \
-            --build-arg PROCESSOR=$p --build-arg SYS_IMG=$sys_img --build-arg IMG_TYPE=$IMG_TYPE \
-            --build-arg BROWSER=$BROWSER -f $FILE_NAME .
-            docker tag $image_version $image_latest
         done
     done
 }
@@ -194,8 +210,13 @@ function push() {
     # Push docker image(s)
     for p in "${processors[@]}"; do
         for v in "${versions[@]}"; do
-            image_version="$IMAGE-$p-$v:$RELEASE"
-            image_latest="$IMAGE-$p-$v:latest"
+            if [ "$v" == "ignored" ]; then
+                image_version="$IMAGE-device:$RELEASE"
+                image_latest="$IMAGE-device:latest"
+            else        
+                image_version="$IMAGE-$p-$v:$RELEASE"
+                image_latest="$IMAGE-$p-$v:latest"
+            fi
             echo "[PUSH] Image name: $image_version and $image_latest"
             docker push $image_version
             docker push $image_latest

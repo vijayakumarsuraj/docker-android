@@ -21,7 +21,7 @@ def get_or_raise(env: str) -> str:
     """
     env_value = os.getenv(env)
     if not env_value:
-        raise RuntimeError('The environment variable {0:s} is missing.'
+        raise RuntimeError('The environment variable {0:s} is missing. '
                            'Please check docker image or Dockerfile!'.format(env))
     return env_value
 
@@ -38,20 +38,21 @@ def convert_str_to_bool(str: str) -> bool:
     except AttributeError as err:
         logger.error(err)
 
-
-ANDROID_HOME = get_or_raise('ANDROID_HOME')
-ANDROID_VERSION = get_or_raise('ANDROID_VERSION')
-API_LEVEL = get_or_raise('API_LEVEL')
-PROCESSOR = get_or_raise('PROCESSOR')
-SYS_IMG = get_or_raise('SYS_IMG')
-IMG_TYPE = get_or_raise('IMG_TYPE')
-
-logger.info('Android version: {version} \n'
-            'API level: {level} \n'
-            'Processor: {processor} \n'
-            'System image: {img} \n'
-            'Image type: {img_type}'.format(version=ANDROID_VERSION, level=API_LEVEL, processor=PROCESSOR,
-                                            img=SYS_IMG, img_type=IMG_TYPE))
+APPIUM = convert_str_to_bool(get_or_raise('APPIUM'))
+AVD = convert_str_to_bool(get_or_raise('AVD'))
+if AVD:
+    ANDROID_VERSION = get_or_raise('ANDROID_VERSION')
+    ANDROID_HOME = get_or_raise('ANDROID_HOME')
+    API_LEVEL = get_or_raise('API_LEVEL')
+    PROCESSOR = get_or_raise('PROCESSOR')
+    SYS_IMG = get_or_raise('SYS_IMG')
+    IMG_TYPE = get_or_raise('IMG_TYPE')
+    logger.info('Android version: {version} \n'
+                'API level: {level} \n'
+                'Processor: {processor} \n'
+                'System image: {img} \n'
+                'Image type: {img_type}'.format(version=ANDROID_VERSION, level=API_LEVEL, processor=PROCESSOR,
+                                                img=SYS_IMG, img_type=IMG_TYPE))
 
 
 def prepare_avd(device: str, avd_name: str):
@@ -116,7 +117,8 @@ def appium_run(avd_name: str):
             selenium_host = os.getenv('SELENIUM_HOST', '172.17.0.1')
             selenium_port = int(os.getenv('SELENIUM_PORT', 4444))
             browser_name = default_web_browser if mobile_web_test else 'android'
-            create_node_config(avd_name, browser_name, appium_host, appium_port, selenium_host, selenium_port)
+            version = ANDROID_VERSION if AVD else ''
+            create_node_config(avd_name, browser_name, version, appium_host, appium_port, selenium_host, selenium_port)
             cmd += ' --nodeconfig {file}'.format(file=CONFIG_FILE)
         except ValueError as v_err:
             logger.error(v_err)
@@ -124,7 +126,7 @@ def appium_run(avd_name: str):
     subprocess.check_call('xterm -T "{title}" -n "{title}" -e \"{cmd}\"'.format(title=title, cmd=cmd), shell=True)
 
 
-def create_node_config(avd_name: str, browser_name: str, appium_host: str, appium_port: int, selenium_host: str,
+def create_node_config(avd_name: str, browser_name: str, version: str, appium_host: str, appium_port: int, selenium_host: str,
                        selenium_port: int):
     """
     Create custom node config file in json format to be able to connect with selenium server.
@@ -140,7 +142,7 @@ def create_node_config(avd_name: str, browser_name: str, appium_host: str, appiu
             {
                 'platform': 'Android',
                 'platformName': 'Android',
-                'version': ANDROID_VERSION,
+                'version': version,
                 'browserName': browser_name,
                 'deviceName': avd_name,
                 'maxInstances': 1,
@@ -168,19 +170,25 @@ def create_node_config(avd_name: str, browser_name: str, appium_host: str, appiu
 
 def run():
     """Run app."""
-    device = os.getenv('DEVICE', 'Nexus 5')
-    logger.info('Device: {device}'.format(device=device))
+    # Run AVD if the AVD flag was set.
+    avd = convert_str_to_bool(os.getenv('AVD', False))
+    if avd:
+        device = os.getenv('DEVICE', 'Nexus 5')
+        logger.info('Device: {device}'.format(device=device))
 
-    avd_name = '{device}_{version}'.format(device=device.replace(' ', '_').lower(), version=ANDROID_VERSION)
-    logger.info('AVD name: {avd}'.format(avd=avd_name))
+        avd_name = '{device}_{version}'.format(device=device.replace(' ', '_').lower(), version=ANDROID_VERSION)
+        logger.info('AVD name: {avd}'.format(avd=avd_name))
 
-    logger.info('Preparing emulator...')
-    prepare_avd(device, avd_name)
-    logger.info('Run emulator...')
-    cmd = 'emulator -avd {name}'.format(name=avd_name)
-    subprocess.Popen(cmd.split())
-
-    appium = convert_str_to_bool(str(os.getenv('APPIUM', False)))
+        logger.info('Preparing emulator...')
+        prepare_avd(device, avd_name)
+        logger.info('Run emulator...')
+        cmd = 'emulator -avd {name}'.format(name=avd_name)
+        subprocess.Popen(cmd.split())
+    else:
+        avd_name = os.getenv('DEVICE', '')
+        
+    # Run Appium if the APPIUM flag was set.
+    appium = convert_str_to_bool(os.getenv('APPIUM', False))
     if appium:
         logger.info('Run appium server...')
         appium_run(avd_name)
