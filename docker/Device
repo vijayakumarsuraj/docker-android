@@ -10,6 +10,8 @@ WORKDIR /root
 #==================
 # General Packages
 #------------------
+# usbutils
+#   USB utilities
 # xterm
 #   Terminal emulator
 # supervisor
@@ -36,6 +38,7 @@ WORKDIR /root
 #   Video recorder
 #==================
 RUN apt-get -qqy update && apt-get -qqy install --no-install-recommends \
+    usbutils \
     xterm \
     supervisor \
     socat \

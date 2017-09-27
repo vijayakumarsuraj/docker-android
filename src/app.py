@@ -39,9 +39,9 @@ def convert_str_to_bool(str: str) -> bool:
         logger.error(err)
 
 APPIUM = convert_str_to_bool(get_or_raise('APPIUM'))
+ANDROID_VERSION = get_or_raise('ANDROID_VERSION')
 AVD = convert_str_to_bool(get_or_raise('AVD'))
 if AVD:
-    ANDROID_VERSION = get_or_raise('ANDROID_VERSION')
     ANDROID_HOME = get_or_raise('ANDROID_HOME')
     API_LEVEL = get_or_raise('API_LEVEL')
     PROCESSOR = get_or_raise('PROCESSOR')
@@ -100,7 +100,8 @@ def appium_run(avd_name: str):
 
     :param avd_name: Name of android virtual device / emulator
     """
-    cmd = 'appium'
+    appium_args = os.getenv('APPIUM_ARGS', '')
+    cmd = 'appium {appium_args}'.format(appium_args=appium_args)
 
     default_web_browser = os.getenv('BROWSER')
     if default_web_browser == 'chrome':
@@ -117,16 +118,17 @@ def appium_run(avd_name: str):
             selenium_host = os.getenv('SELENIUM_HOST', '172.17.0.1')
             selenium_port = int(os.getenv('SELENIUM_PORT', 4444))
             browser_name = default_web_browser if mobile_web_test else 'android'
-            version = ANDROID_VERSION if AVD else ''
-            create_node_config(avd_name, browser_name, version, appium_host, appium_port, selenium_host, selenium_port)
+            create_node_config(avd_name, browser_name, appium_host, appium_port, selenium_host, selenium_port)
             cmd += ' --nodeconfig {file}'.format(file=CONFIG_FILE)
         except ValueError as v_err:
             logger.error(v_err)
+
+    logger.info('Appium command: {cmd}'.format(cmd=cmd))
     title = 'Appium Server'
     subprocess.check_call('xterm -T "{title}" -n "{title}" -e \"{cmd}\"'.format(title=title, cmd=cmd), shell=True)
 
 
-def create_node_config(avd_name: str, browser_name: str, version: str, appium_host: str, appium_port: int, selenium_host: str,
+def create_node_config(avd_name: str, browser_name: str, appium_host: str, appium_port: int, selenium_host: str,
                        selenium_port: int):
     """
     Create custom node config file in json format to be able to connect with selenium server.
@@ -142,7 +144,7 @@ def create_node_config(avd_name: str, browser_name: str, version: str, appium_ho
             {
                 'platform': 'Android',
                 'platformName': 'Android',
-                'version': version,
+                'version': ANDROID_VERSION,
                 'browserName': browser_name,
                 'deviceName': avd_name,
                 'maxInstances': 1,
